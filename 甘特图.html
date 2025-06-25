@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>甘特图</title>
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+
+		body {
+			font-family: Arial, sans-serif;
+			padding: 20px;
+		}
+
+		.gantt-container {
+			width: 100%;
+			overflow-x: auto;
+			border: 1px solid #e0e0e0;
+			border-radius: 4px;
+		}
+
+		.gantt {
+			display: grid;
+			grid-template-columns: 200px 1fr;
+			min-width: 1000px;
+		}
+
+		.task-list {
+			background: #f5f5f5;
+			border-right: 1px solid #e0e0e0;
+		}
+
+		.task-list-header, .task-item {
+			padding: 10px;
+			border-bottom: 1px solid #e0e0e0;
+			height: 100px;
+			display: flex;
+			align-items: center;
+		}
+		.task-list-header{
+			height: 55px;
+		}
+		.timeline {
+			position: relative;
+		}
+
+
+		.week-row {
+			display: flex;
+			height: 30px;
+			border-bottom: 1px solid #e0e0e0;
+			background: #f8f9fa;
+		}
+
+		.week {
+			width: 140px;
+			text-align: center;
+			border-right: 1px solid #e0e0e0;
+			font-size: 12px;
+			padding: 5px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.days-row {
+			display: flex;
+			height: 25px;
+			border-bottom: 1px solid #e0e0e0;
+		}
+
+		.day {
+			width: 20px;
+			text-align: center;
+			border-right: 1px solid #e0e0e0;
+			font-size: 12px;
+			background: #fff;
+			padding: 4px 0;
+		}
+
+		.weekend {
+			background: #f5f5f5;
+		}
+
+		.timeline-grid {
+			position: relative;
+		}
+
+		.timeline-row {
+			height: 100px;
+			border-bottom: 1px solid #e0e0e0;
+			position: relative;
+		}
+
+		.task-bar {
+			position: absolute;
+			height: 30px;
+			background: #4CAF50;
+			border-radius: 4px;
+			cursor: pointer;
+			transition: all 0.3s;
+		}
+
+		.task-bar:nth-child(1) {
+			top: 10px;
+			background: #4CAF50;
+		}
+
+		.task-bar:nth-child(2) {
+			top: 50px;
+			background: #2196F3;
+		}
+
+		.task-bar:hover {
+			opacity: 0.9;
+			transform: scaleY(1.1);
+		}
+	</style>
+</head>
+<body>
+	<div class="gantt-container">
+		<div class="gantt">
+			<div class="task-list">
+				<div class="task-list-header">任务名称</div>
+			</div>
+			<div class="timeline">
+				<div class="timeline-header">
+				</div>
+				<div class="timeline-grid">
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		const tasks = [
+			{
+				id: 1,
+				name: '项目规划',
+				startDate: '2024-01-01',
+				endDate: '2024-02-15',
+				startDate2: '',
+				endDate2: ''
+			},
+			{
+				id: 2,
+				name: '需求分析',
+				startDate: '2024-02-01',
+				endDate: '2024-03-15',
+				startDate2: '2024-01-01',
+				endDate2: '2024-02-15'
+			},
+			{
+				id: 3,
+				name: '设计阶段',
+				startDate: '2024-03-01',
+				endDate: '2024-04-30',
+				startDate2: '2024-01-01',
+				endDate2: '2024-02-15'
+			},
+			{
+				id: 4,
+				name: '开发阶段',
+				startDate: '2024-04-01',
+				endDate: '2024-06-30',
+				startDate2: '2024-03-01',
+				endDate2: '2024-04-30'
+			}
+		];
+
+		function addDays(date, days) {
+			const result = new Date(date);
+			result.setDate(result.getDate() + days);
+			return result;
+		}
+
+		function getWeeksBetween(startDate, endDate) {
+			const weeks = [];
+			let currentDate = new Date(startDate);
+			
+			while (currentDate <= endDate) {
+				weeks.push(new Date(currentDate));
+				currentDate = addDays(currentDate, 7);
+			}
+			return weeks;
+		}
+
+		function formatDate(date) {
+			return `${date.getMonth() + 1}/${date.getDate()}`;
+		}
+
+		function getWeekRange(date) {
+			const weekStart = new Date(date);
+			const weekEnd = new Date(date);
+			weekEnd.setDate(weekEnd.getDate() + 6);
+			return `${formatDate(weekStart)}-${formatDate(weekEnd)}`;
+		}
+
+		function initGantt() {
+			// 获取所有有效的时间点进行计算
+			const dates = tasks.flatMap(task => {
+				const validDates = [];
+				if (task.startDate && task.endDate) {
+					validDates.push(new Date(task.startDate), new Date(task.endDate));
+				}
+				if (task.startDate2 && task.endDate2) {
+					validDates.push(new Date(task.startDate2), new Date(task.endDate2));
+				}
+				return validDates;
+			});
+			
+			const startDate = new Date(Math.min(...dates));
+			const endDate = new Date(Math.max(...dates));
+
+			startDate.setDate(startDate.getDate() - startDate.getDay());
+			endDate.setDate(endDate.getDate() + (6 - endDate.getDay()));
+
+			const weeks = getWeeksBetween(startDate, endDate);
+			const dayWidth = 20;
+
+			// 渲染时间轴
+			const timelineHeader = document.querySelector('.timeline-header');
+			
+			// 创建周数行和天数行
+			const weekRow = document.createElement('div');
+			weekRow.className = 'week-row';
+			const daysRow = document.createElement('div');
+			daysRow.className = 'days-row';
+
+			weeks.forEach(date => {
+				// 添加周显示
+				const weekElement = document.createElement('div');
+				weekElement.className = 'week';
+				weekElement.textContent = getWeekRange(date);
+				weekRow.appendChild(weekElement);
+
+				// 添加天显示
+				for (let i = 0; i < 7; i++) {
+					const dayDate = new Date(date);
+					dayDate.setDate(dayDate.getDate() + i);
+					const dayElement = document.createElement('div');
+					dayElement.className = `day${i === 0 || i === 6 ? ' weekend' : ''}`;
+					dayElement.textContent = dayDate.getDate();
+					daysRow.appendChild(dayElement);
+				}
+			});
+
+			timelineHeader.appendChild(weekRow);
+			timelineHeader.appendChild(daysRow);
+
+			// 渲染任务列表
+			const taskList = document.querySelector('.task-list');
+			const taskListContent = tasks.map(task =>
+				`<div class="task-item">${task.name}</div>`
+			).join('');
+			taskList.innerHTML = taskList.innerHTML + taskListContent;
+
+			// 渲染任务条
+			const timelineGrid = document.querySelector('.timeline-grid');
+			timelineGrid.innerHTML = tasks.map(task => {
+				let taskBarsHTML = '';
+
+				// 渲染第一个时间段（如果存在）
+				if (task.startDate && task.endDate) {
+					const taskStart1 = new Date(task.startDate);
+					const taskEnd1 = new Date(task.endDate);
+					const daysDiffStart1 = (taskStart1 - startDate) / (1000 * 60 * 60 * 24);
+					const daysDuration1 = (taskEnd1 - taskStart1) / (1000 * 60 * 60 * 24) + 1;
+					
+					taskBarsHTML += `
+						<div class="task-bar" style="left: ${daysDiffStart1 * dayWidth}px; width: ${daysDuration1 * dayWidth}px;">
+						</div>
+					`;
+				}
+
+				// 渲染第二个时间段（如果存在）
+				if (task.startDate2 && task.endDate2) {
+					const taskStart2 = new Date(task.startDate2);
+					const taskEnd2 = new Date(task.endDate2);
+					const daysDiffStart2 = (taskStart2 - startDate) / (1000 * 60 * 60 * 24);
+					const daysDuration2 = (taskEnd2 - taskStart2) / (1000 * 60 * 60 * 24) + 1;
+					
+					taskBarsHTML += `
+						<div class="task-bar" style="left: ${daysDiffStart2 * dayWidth}px; width: ${daysDuration2 * dayWidth}px;">
+						</div>
+					`;
+				}
+
+				return `
+					<div class="timeline-row">
+						${taskBarsHTML}
+					</div>
+				`;
+			}).join('');
+		}
+
+		initGantt();
+	</script>
+</body>
+</html>
